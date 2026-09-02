@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ELN 投資決策模擬器 (Pre-Purchase Evaluator) - 記憶升級版 v12</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-muted: #777777;
+            --primary: #0056b3;
+            --secondary: #17a2b8;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --border-color: #eaeaea;
+            --highlight-bg: #f8f9fa;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 15px;
+            line-height: 1.5;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        h1 { text-align: center; color: var(--primary); margin-bottom: 5px; font-size: 1.5em; }
+        .subtitle { text-align: center; color: var(--text-muted); margin-bottom: 20px; font-size: 0.9em; }
+        
+        .intro-card {
+            background-color: #e2f0fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            color: #004085;
+            border-left: 4px solid var(--primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .clear-btn {
+            background-color: #fff;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+        .clear-btn:hover { background-color: var(--danger); color: #fff; }
+
+        /* 雙欄排版 (Grid) */
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .eln-card {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .card-header {
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+            margin-bottom: 5px;
+        }
+        .card-header input.title-input {
+            width: 100%;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--primary);
+            border: none;
+            background: transparent;
+            border-bottom: 1px dashed #ccc;
+            padding: 5px 0;
+        }
+        .card-header input.title-input:focus { outline: none; border-bottom-color: var(--primary); }
+
+        .section-title {
+            font-weight: bold;
+            color: #495057;
+            font-size: 1em;
+            margin-top: 10px;
+            background: var(--highlight-bg);
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .input-group label { font-size: 0.85em; font-weight: bold; color: #555; }
+        .input-group input {
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        .result-box {
+            background-color: #fcfcfc;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.95em;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .result-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .result-label { color: #666; }
+        .result-val { font-weight: bold; color: var(--text-main); }
+        .val-green { color: var(--success); }
+        .val-red { color: var(--danger); }
+        .val-blue { color: var(--primary); }
+
+        .stress-test {
+            background-color: #fff3cd;
+            border-left: 4px solid var(--warning);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: auto;
+        }
+        .stress-test .input-group { margin-bottom: 10px; }
+
+        @media screen and (max-width: 768px) {
+            body { padding: 10px; }
+            .comparison-grid { grid-template-columns: 1fr; gap: 15px; }
+            .intro-card { flex-direction: column; gap: 10px; align-items: stretch; text-align: left; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 ELN 投資決策模擬器</h1>
+        <div class="subtitle">100% 離線運算，無需外部數據連線，自動記憶輸入數值</div>
+        
+        <div class="intro-card">
+            <div>💡 <strong>使用說明：</strong> 輸入銀行報價，系統將自動推演<strong>預期利息、安全墊厚度、兩平點</strong>與<strong>實物交割虧損</strong>。您輸入的所有參數都會自動保存在手機/電腦中，重新整理也不會消失。</div>
+            <button class="clear-btn" onclick="clearData()">清除所有記憶</button>
+        </div>
+
+        <div class="comparison-grid">
+            <!-- 方案 A -->
+            <div class="eln-card" id="cardA">
+                <div class="card-header">
+                    <input type="text" id="titleA" class="title-input" value="方案 A (例如: NVDA 6個月)" oninput="calculate('A'); saveData()">
+                </div>
+                
+                <div class="section-title">📥 1. 輸入報價條件 (Inputs)</div>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label>單檔本金 (USD)</label>
+                        <input type="number" id="A_principal" value="50000" oninput="calculate('A'); saveData()">
+                    </div>
+                    <div class="input-group">
+                        <label>天期 (月)</label>
+                        <input type="number" id="A_term" value="6" oninput="calculate('A'); saveData()">
+                    </div>
+                    <div class="input-group">
+                        <label>期初價 ($)</label>
+                        <input type="number" id="A_initial" value="120" oninput="calculate('A'); saveData()">
+                    </div>
+                    <div class="input-group">
+                        <label>年化配息率 (%)</label>
+                        <input type="number" id="A_yield" value="15" oninput="calculate('A'); saveData()">
+                    </div>
+                    <div class="input-group">
+                        <label>執行價 (%)</label>
+                        <input type="number" id="A_strikePct" value="75" oninput="calculate('A'); saveData()">
+                    </div>
+                    <div class="input-group">
+                        <label>下限觸發價 (%)</label>
+                        <input type="number" id="A_kiPct" value="60" oninput="calculate('A'); saveData()">
+                    </div>
+                </div>
+
+                <div class="section-title">📈 2. 回報與風險評估 (Analysis)</div>
+                <div class="result-box">
+                    <div class="result-row">
+                        <span class="result-label">預估月配息 (USD)</span>
+                        <span class="result-val val-green" id="A_monthlyInt">$0.00</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">滿期總利息 (USD)</span>
+                        <span class="result-val val-green" id="A_totalInt">$0.00</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">安全墊厚度 (容錯率)</span>
+                        <span class="result-val val-blue" id="A_cushion">0.00%</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">真實損益兩平點 ($)</span>
+                        <span class="result-val" id="A_breakeven">$0.00</span>
+                    </div>
+                    <div style="font-size:0.8em; color:#777; margin-top:5px; line-height:1.2;">
+                        *兩平點 = 執行價扣除滿期總利息。交割後股價高於此價位，總資產依然獲利。
+                    </div>
+                </div>
+
+                <div class="stress-test">
+                    <div style="font-weight:bold; margin-bottom:10px; color:#856404;">⚠️ 3. 實物交割壓力測試 (Worst Case)</div>
+                    <div class="input-group">
+                        <label>假設到期時，股價慘跌至 ($)</label>
+                        <input type="number" id="A_stressPrice" value="50" oninput="calculate('A'); saveData()">
+                    </div>
+                    <div class="result-row" style="margin-top:10px;">
+                        <span class="result-label">預估接股數量 (股)</span>
+                        <span class="result-val" id="A_shares">0</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">實質剩餘總價值 (USD)</span>
+                        <span class="result-val" id="A_finalValue">$0.00</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">包含利息後總損益</span>
+                        <span class="result-val val-red" id="A_totalPnL">0.00%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 方案 B -->
+            <div class="eln-card" id="cardB">
+                <div class="card-header">
+                    <input type="text" id="titleB" class="title-input" value="方案 B (例如: TSM 6個月)" oninput="calculate('B'); saveData()">
+                </div>
+                
+                <div class="section-title">📥 1. 輸入報價條件 (Inputs)</div>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label>單檔本金 (USD)</label>
+                        <input type="number" id="B_principal" value="50000" oninput="calculate('B'); saveData()">
+                    </div>
+                    <div class="input-group">
+                        <label>天期 (月)</label>
+                        <input type="number" id="B_term" value="6" oninput="calculate('B'); saveData()">
+                    </div>
+                    <div class="input-group">
+                        <label>期初價 ($)</label>
+                        <input type="number" id="B_initial" value="150" oninput="calculate('B'); saveData()">
+                    </div>
+                    <div class="input-group">
+                        <label>年化配息率 (%)</label>
+                        <input type="number" id="B_yield" value="12" oninput="calculate('B'); saveData()">
+                    </div>
+                    <div class="input-group">
+                        <label>執行價 (%)</label>
+                        <input type="number" id="B_strikePct" value="70" oninput="calculate('B'); saveData()">
+                    </div>
+                    <div class="input-group">
+                        <label>下限觸發價 (%)</label>
+                        <input type="number" id="B_kiPct" value="55" oninput="calculate('B'); saveData()">
+                    </div>
+                </div>
+
+                <div class="section-title">📈 2. 回報與風險評估 (Analysis)</div>
+                <div class="result-box">
+                    <div class="result-row">
+                        <span class="result-label">預估月配息 (USD)</span>
+                        <span class="result-val val-green" id="B_monthlyInt">$0.00</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">滿期總利息 (USD)</span>
+                        <span class="result-val val-green" id="B_totalInt">$0.00</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">安全墊厚度 (容錯率)</span>
+                        <span class="result-val val-blue" id="B_cushion">0.00%</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">真實損益兩平點 ($)</span>
+                        <span class="result-val" id="B_breakeven">$0.00</span>
+                    </div>
+                    <div style="font-size:0.8em; color:#777; margin-top:5px; line-height:1.2;">
+                        *兩平點 = 執行價扣除滿期總利息。交割後股價高於此價位，總資產依然獲利。
+                    </div>
+                </div>
+
+                <div class="stress-test">
+                    <div style="font-weight:bold; margin-bottom:10px; color:#856404;">⚠️ 3. 實物交割壓力測試 (Worst Case)</div>
+                    <div class="input-group">
+                        <label>假設到期時，股價慘跌至 ($)</label>
+                        <input type="number" id="B_stressPrice" value="60" oninput="calculate('B'); saveData()">
+                    </div>
+                    <div class="result-row" style="margin-top:10px;">
+                        <span class="result-label">預估接股數量 (股)</span>
+                        <span class="result-val" id="B_shares">0</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">實質剩餘總價值 (USD)</span>
+                        <span class="result-val" id="B_finalValue">$0.00</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">包含利息後總損益</span>
+                        <span class="result-val val-red" id="B_totalPnL">0.00%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const inputIds = [
+            'titleA', 'A_principal', 'A_term', 'A_initial', 'A_yield', 'A_strikePct', 'A_kiPct', 'A_stressPrice',
+            'titleB', 'B_principal', 'B_term', 'B_initial', 'B_yield', 'B_strikePct', 'B_kiPct', 'B_stressPrice'
+        ];
+
+        function formatCurr(num) {
+            return "$" + num.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        function calculate(prefix) {
+            const principal = parseFloat(document.getElementById(prefix + '_principal').value) || 0;
+            const term = parseFloat(document.getElementById(prefix + '_term').value) || 0;
+            const initial = parseFloat(document.getElementById(prefix + '_initial').value) || 0;
+            const yieldPct = parseFloat(document.getElementById(prefix + '_yield').value) || 0;
+            const strikePct = parseFloat(document.getElementById(prefix + '_strikePct').value) || 0;
+            const kiPct = parseFloat(document.getElementById(prefix + '_kiPct').value) || 0;
+            const stressPrice = parseFloat(document.getElementById(prefix + '_stressPrice').value) || 0;
+
+            const monthlyInt = principal * (yieldPct / 100) / 12;
+            const totalInt = monthlyInt * term;
+            const cushion = 100 - kiPct;
+            
+            const strikeAbs = initial * (strikePct / 100);
+            let shares = 0;
+            if (strikeAbs > 0) {
+                shares = principal / strikeAbs;
+            }
+            
+            let breakeven = 0;
+            if (shares > 0) {
+                breakeven = strikeAbs - (totalInt / shares);
+            }
+
+            document.getElementById(prefix + '_monthlyInt').innerText = formatCurr(monthlyInt);
+            document.getElementById(prefix + '_totalInt').innerText = formatCurr(totalInt);
+            document.getElementById(prefix + '_cushion').innerText = cushion.toFixed(2) + "%";
+            document.getElementById(prefix + '_breakeven').innerText = formatCurr(breakeven);
+
+            document.getElementById(prefix + '_shares').innerText = shares.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            const finalValue = (shares * stressPrice) + totalInt;
+            document.getElementById(prefix + '_finalValue').innerText = formatCurr(finalValue);
+            
+            let pnlPct = 0;
+            if (principal > 0) {
+                pnlPct = ((finalValue - principal) / principal) * 100;
+            }
+            
+            const pnlEl = document.getElementById(prefix + '_totalPnL');
+            pnlEl.innerText = (pnlPct > 0 ? "+" : "") + pnlPct.toFixed(2) + "%";
+            if (pnlPct >= 0) {
+                pnlEl.className = "result-val val-green";
+            } else {
+                pnlEl.className = "result-val val-red";
+            }
+        }
+
+        function saveData() {
+            inputIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    localStorage.setItem('evaluator_' + id, el.value);
+                }
+            });
+        }
+
+        function loadData() {
+            inputIds.forEach(id => {
+                const savedVal = localStorage.getItem('evaluator_' + id);
+                if (savedVal !== null) {
+                    document.getElementById(id).value = savedVal;
+                }
+            });
+        }
+
+        function clearData() {
+            if(confirm('確定要清除所有自訂的數據，恢復成預設值嗎？')) {
+                inputIds.forEach(id => {
+                    localStorage.removeItem('evaluator_' + id);
+                });
+                location.reload();
+            }
+        }
+
+        // 載入頁面時自動讀取記憶並計算
+        loadData();
+        calculate('A');
+        calculate('B');
+    </script>
+</body>
+</html>
