@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>玉山 ELN 產品自動追蹤 APP (Finnhub) - 時間鎖定版 v14</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-muted: #777777;
+            --primary: #007bff;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --memory: #20c997;
+            --info: #17a2b8;
+            --border-color: #eaeaea;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 15px;
+        }
+        .container { max-width: 950px; margin: 0 auto; }
+        h1 { text-align: center; color: #0056b3; margin-bottom: 5px; font-size: 1.5em; }
+        .subtitle { text-align: center; color: var(--text-muted); margin-bottom: 25px; font-size: 0.9em; }
+        
+        .settings-card {
+            background-color: var(--card-bg); padding: 20px; border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; flex-direction: column; gap: 15px;
+        }
+        .settings-top-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+        .input-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .settings-card label { font-weight: bold; font-size: 1.05em; white-space: nowrap; }
+        .settings-card input { padding: 8px 12px; font-size: 1em; border: 1px solid var(--border-color); border-radius: 5px; }
+        #principal { width: 150px; }
+        #apiKey { flex: 1; min-width: 250px; max-width: 400px; font-family: monospace; font-size: 0.9em; color: #555; }
+        
+        .btn-fetch { background-color: #17a2b8; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1em; font-weight: bold; transition: background 0.3s; width: auto; }
+        .btn-fetch:hover { background-color: #138496; }
+        .btn-fetch:disabled { background-color: #6c757d; cursor: not-allowed; }
+        
+        .btn-reset { background-color: #f8f9fa; color: #dc3545; border: 1px solid #dc3545; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 0.85em; font-weight: bold; transition: 0.3s; }
+        .btn-reset:hover { background-color: #dc3545; color: white; }
+
+        .btn-manual-lock { margin-top: 8px; background-color: #f8f9fa; color: #495057; border: 1px dashed #adb5bd; padding: 5px 8px; border-radius: 4px; font-size: 0.8em; cursor: pointer; width: 100%; transition: all 0.2s; }
+        .btn-manual-lock:hover { background-color: #20c997; color: white; border-style: solid; border-color: #20c997; }
+        
+        .eln-card { background-color: var(--card-bg); padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .eln-header { border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+        .eln-header h2 { margin: 0; color: var(--primary); font-size: 1.3em; }
+        
+        .eln-info { display: flex; justify-content: space-between; flex-wrap: wrap; margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px; gap: 15px; }
+        .info-item { flex: 1 1 200px; }
+        .info-item span.label { display: block; font-size: 0.85em; color: var(--text-muted); margin-bottom: 4px; line-height: 1.2; }
+        .info-item span.value { font-size: 1.15em; font-weight: bold; color: #d9534f; }
+        .info-item span.value-date { font-size: 1.05em; font-weight: 500; color: #495057; }
+        .info-item.full-width { flex: 1 1 100%; border-top: 1px dashed #ccc; padding-top: 10px; margin-top: 5px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.95em; vertical-align: top; }
+        th { background-color: #f1f1f1; font-weight: 600; line-height: 1.2; vertical-align: middle; }
+        th span, td span.en-label { display: block; font-size: 0.8em; color: #777; font-weight: normal; }
+        input.price-input { width: 95px; padding: 6px; border: 1px solid #ccc; border-radius: 4px; background-color: #e9ecef; font-size: 1em; }
+        
+        .status-badge { padding: 6px 10px; border-radius: 4px; font-size: 0.85em; font-weight: bold; color: white; display: inline-block; text-align: center; width: 100%;}
+        .status-badge span { display: block; font-size: 0.85em; font-weight: normal; opacity: 0.9; }
+        .bg-success { background-color: var(--success); }
+        .bg-memory { background-color: var(--memory); }
+        .bg-danger { background-color: var(--danger); }
+        .bg-warning { background-color: var(--warning); color: #333; }
+        .bg-info { background-color: var(--info); }
+        .text-green { color: var(--success); font-weight: bold; }
+        .text-red { color: var(--danger); font-weight: bold; }
+        
+        .result-panel { margin-top: 15px; padding: 15px; background: #e9ecef; border-radius: 8px; border-left: 5px solid var(--primary); line-height: 1.5; font-size: 0.95em; }
+        #lastUpdate { font-size: 0.85em; color: var(--text-muted); margin-top: 8px; text-align: right; }
+        .saved-hint { font-size: 0.85em; color: var(--success); font-weight: bold; display: none; }
+
+        @media screen and (max-width: 768px) {
+            body { padding: 10px; }
+            h1 { font-size: 1.3em; }
+            .settings-top-row { flex-direction: column; align-items: stretch; }
+            .input-group { width: 100%; }
+            #principal { width: calc(100% - 130px); }
+            #apiKey { width: calc(100% - 100px); min-width: 0; }
+            .settings-top-row > div:last-child { width: 100%; text-align: center !important; margin-top: 5px; }
+            .btn-fetch { width: 100%; padding: 12px; font-size: 1.1em; }
+            #lastUpdate { text-align: center; }
+            table, thead, tbody, th, td, tr { display: block; }
+            thead tr { display: none; }
+            tr { border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 15px; background-color: #fdfdfd; padding: 5px 0; }
+            td { border: none; border-bottom: 1px solid #eee; position: relative; padding: 12px 10px 12px 50%; text-align: right; min-height: 45px; display: flex; align-items: center; justify-content: flex-end; flex-direction: column;}
+            td:last-child { border-bottom: none; }
+            td::before { content: attr(data-label-tw) "\A" attr(data-label-en); white-space: pre-wrap; position: absolute; left: 15px; top: 12px; width: 45%; padding-right: 10px; text-align: left; font-weight: bold; color: var(--text-muted); font-size: 0.9em; line-height: 1.2; }
+            input.price-input { text-align: right; }
+            .status-badge { width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📈 玉山 ELN 產品自動追蹤 APP</h1>
+        <div class="subtitle">依據觀察日智能鎖定 ＋ 雙軌機制 (v14)</div>
+        
+        <div class="settings-card">
+            <div class="settings-top-row">
+                <div class="input-group">
+                    <label for="principal">💰 單檔本金<br><span style="font-size:0.8em; color:#777; font-weight:normal;">(Principal in USD):</span></label>
+                    <input type="number" id="principal" value="50000" onchange="saveSettings(); calculateAll()">
+                </div>
+                <div>
+                    <button class="btn-fetch" id="fetchBtn" onclick="fetchPrices()">🔄 即時抓取最新股價<br><span style="font-size:0.8em; font-weight:normal;">(Fetch Live Prices)</span></button>
+                    <div id="lastUpdate">尚未更新 (Not Updated)</div>
+                </div>
+            </div>
+            
+            <div class="input-group" style="padding-top: 15px; border-top: 1px dashed var(--border-color);">
+                <label for="apiKey">🔑 API 金鑰<br><span style="font-size:0.8em; color:#777; font-weight:normal;">(API Key):</span></label>
+                <input type="text" id="apiKey" value="da8gbn9r01qo86ch5kl0da8gbn9r01qo86ch5klg" onchange="saveSettings()" placeholder="請輸入您的 Finnhub API Key">
+                <span id="saveHint" class="saved-hint">✓ 已自動記憶 (Auto Saved)</span>
+            </div>
+        </div>
+
+        <!-- O084 -->
+        <div class="eln-card" id="card-O084">
+            <div class="eln-header">
+                <h2>O084 法商法國興業 (7個月期 / 7-Month)</h2>
+                <button class="btn-reset" onclick="resetMemory('O084')">清除達標記憶<br><span style="font-weight:normal; font-size:0.8em;">(Reset Memory)</span></button>
+            </div>
+            <div class="eln-info">
+                <div class="info-item">
+                    <span class="label">發行日 / 到期日<br><span style="font-size:0.9em;">(Issue / Maturity Date)</span></span>
+                    <span class="value-date">2026/08/18 - 2027/03/23</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">觀察 / 評價日<br><span style="font-size:0.9em;">(Observation / Valuation)</span></span>
+                    <span class="value-date" id="obs-O084">2026-09-18</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">年化 / 月配息率<br><span style="font-size:0.9em;">(Annual / Monthly Yield)</span></span>
+                    <span class="value">13.40% / 1.1167%</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">滿一個月可領利息 (預估)<br><span style="font-size:0.9em;">(Est. Monthly Interest)</span></span>
+                    <span class="value" id="interest-O084">$0.0000</span>
+                </div>
+                <div class="info-item full-width">
+                    <span class="label" style="color:#0056b3; font-weight:bold;">💡 智能時間鎖機制 (Time-Locked Lock)：</span>
+                    <span style="font-size:0.9em; color:#444;">系統會自動比對今日日期。<strong>在首次觀察日到來前 (閉鎖期)</strong>，即使股價達標也不會啟動記憶，且禁用手動補登功能，防止無效鎖定。</span>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>標的<br><span>(Ticker)</span></th>
+                        <th>期初價(100%)<br><span>(Initial Price)</span></th>
+                        <th>執行價(75%)<br><span>(Strike Price)</span></th>
+                        <th>下限(60%)<br><span>(Knock-in Price)</span></th>
+                        <th>即時現價<br><span>(Live Price)</span></th>
+                        <th>漲跌幅 (%)<br><span>(Change %)</span></th>
+                        <th>狀態判定<br><span>(Status)</span></th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-O084"></tbody>
+            </table>
+            <div class="result-panel" id="result-O084">等待載入即時價格... (Waiting for live prices...)</div>
+        </div>
+
+        <!-- O123 -->
+        <div class="eln-card" id="card-O123">
+            <div class="eln-header">
+                <h2>O123 英商高盛國際 (6個月期 / 6-Month)</h2>
+                <button class="btn-reset" onclick="resetMemory('O123')">清除達標記憶<br><span style="font-weight:normal; font-size:0.8em;">(Reset Memory)</span></button>
+            </div>
+            <div class="eln-info">
+                <div class="info-item">
+                    <span class="label">發行日 / 到期日<br><span style="font-size:0.9em;">(Issue / Maturity Date)</span></span>
+                    <span class="value-date">2026/08/20 - 2027/02/24</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">觀察 / 評價日<br><span style="font-size:0.9em;">(Observation / Valuation)</span></span>
+                    <span class="value-date" id="obs-O123">2026-10-20</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">年化 / 月配息率<br><span style="font-size:0.9em;">(Annual / Monthly Yield)</span></span>
+                    <span class="value">16.14% / 1.3450%</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">滿一個月可領利息 (預估)<br><span style="font-size:0.9em;">(Est. Monthly Interest)</span></span>
+                    <span class="value" id="interest-O123">$0.0000</span>
+                </div>
+                <div class="info-item full-width">
+                    <span class="label" style="color:#0056b3; font-weight:bold;">💡 智能時間鎖機制 (Time-Locked Lock)：</span>
+                    <span style="font-size:0.9em; color:#444;">系統會自動比對今日日期。<strong>在首次觀察日到來前 (閉鎖期)</strong>，即使股價達標也不會啟動記憶，且禁用手動補登功能，防止無效鎖定。</span>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>標的<br><span>(Ticker)</span></th>
+                        <th>期初價(100%)<br><span>(Initial Price)</span></th>
+                        <th>執行價(75%)<br><span>(Strike Price)</span></th>
+                        <th>下限(60%)<br><span>(Knock-in Price)</span></th>
+                        <th>即時現價<br><span>(Live Price)</span></th>
+                        <th>漲跌幅 (%)<br><span>(Change %)</span></th>
+                        <th>狀態判定<br><span>(Status)</span></th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-O123"></tbody>
+            </table>
+            <div class="result-panel" id="result-O123">等待載入即時價格... (Waiting for live prices...)</div>
+        </div>
+    </div>
+
+    <script>
+        const elnData = {
+            'O084': {
+                monthlyRate: 0.011167,
+                obsDate: '2026-09-18',
+                stocks: [
+                    { ticker: 'AMD', initial: 474.32, strike: 355.74, knockIn: 284.5920 },
+                    { ticker: 'TSM', initial: 422.06, strike: 316.545, knockIn: 253.2360 },
+                    { ticker: 'AVGO', initial: 416.08, strike: 312.06, knockIn: 249.6480 }
+                ]
+            },
+            'O123': {
+                monthlyRate: 0.013450,
+                obsDate: '2026-10-20',
+                stocks: [
+                    { ticker: 'MU', initial: 949.83, strike: 712.3725, knockIn: 569.8980 },
+                    { ticker: 'NVDA', initial: 225.30, strike: 168.975, knockIn: 135.1800 },
+                    { ticker: 'TSM', initial: 430.49, strike: 322.8675, knockIn: 258.2940 }
+                ]
+            }
+        };
+
+        const livePrices = {
+            'AMD': 0, 'TSM': 0, 'AVGO': 0, 'MU': 0, 'NVDA': 0
+        };
+        
+        function saveSettings() {
+            const principalInput = document.getElementById('principal');
+            const apiKeyInput = document.getElementById('apiKey');
+            localStorage.setItem('eln_principal_saved', principalInput.value);
+            localStorage.setItem('eln_apikey_saved', apiKeyInput.value.trim());
+            const hint = document.getElementById('saveHint');
+            hint.style.display = 'inline-block';
+            setTimeout(() => { hint.style.display = 'none'; }, 2000);
+        }
+
+        function loadSettings() {
+            const savedPrincipal = localStorage.getItem('eln_principal_saved');
+            if (savedPrincipal !== null) { document.getElementById('principal').value = savedPrincipal; }
+            const savedApiKey = localStorage.getItem('eln_apikey_saved');
+            if (savedApiKey !== null && savedApiKey !== "") { document.getElementById('apiKey').value = savedApiKey; }
+        }
+
+        function resetMemory(productId) {
+            if(confirm('確定要清除 ' + productId + ' 的股票達標記憶嗎？
+(這會將所有手動與自動的綠燈還原)')) {
+                elnData[productId].stocks.forEach(stock => {
+                    localStorage.removeItem('eln_memory_' + productId + '_' + stock.ticker);
+                });
+                calculateAll();
+            }
+        }
+
+        function manualLock(productId, ticker) {
+            if(confirm(`確定要手動將 ${ticker} 標記為「已達標」嗎？
+
+(💡 提示：此功能用於補登銀行已經宣告達標，但 APP 當初尚未抓取到高價的情境)`)) {
+                localStorage.setItem(`eln_memory_${productId}_${ticker}`, 'true');
+                calculateAll();
+            }
+        }
+
+        function initTables() {
+            ['O084', 'O123'].forEach(productId => {
+                const tbody = document.getElementById(`tbody-${productId}`);
+                let html = '';
+                elnData[productId].stocks.forEach(stock => {
+                    html += `
+                        <tr>
+                            <td data-label-tw="標的" data-label-en="(Ticker)"><strong>${stock.ticker}</strong></td>
+                            <td data-label-tw="期初價(100%)" data-label-en="(Initial Price)">$${stock.initial.toFixed(4)}</td>
+                            <td data-label-tw="執行價(75%)" data-label-en="(Strike Price)">$${stock.strike.toFixed(4)}</td>
+                            <td data-label-tw="下限觸發(60%)" data-label-en="(Knock-in Price)">$${stock.knockIn.toFixed(4)}</td>
+                            <td data-label-tw="即時現價" data-label-en="(Live Price)">
+                                $<input type="number" readonly class="price-input" id="price-${productId}-${stock.ticker}" value="0.0000">
+                            </td>
+                            <td data-label-tw="漲跌幅 (%)" data-label-en="(Change %)" id="change-${productId}-${stock.ticker}">-</td>
+                            <td data-label-tw="狀態判定" data-label-en="(Status)" id="status-${productId}-${stock.ticker}">-</td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            });
+            calculateAll();
+        }
+
+        async function fetchPrices() {
+            const btn = document.getElementById('fetchBtn');
+            const currentApiKey = document.getElementById('apiKey').value.trim();
+            if (!currentApiKey) { alert("⚠️ 請先輸入您的 API 金鑰 (Please enter your API Key)"); return; }
+
+            btn.disabled = true;
+            btn.innerHTML = "🔄 抓取中...<br><span style='font-size:0.8em;font-weight:normal;'>(Fetching...)</span>";
+            
+            const symbols = Object.keys(livePrices);
+            let hasError = false;
+            let rateLimited = false;
+
+            for (let symbol of symbols) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 6000);
+                    const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${currentApiKey}`, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+
+                    if (response.status === 429) { rateLimited = true; hasError = true; break; }
+                    if (response.status === 401 || response.status === 403) { alert("⚠️ API 金鑰無效或被拒絕存取，請檢查金鑰是否正確。"); hasError = true; break; }
+                    
+                    const data = await response.json();
+                    if (data && data.c) { livePrices[symbol] = data.c; } else { hasError = true; }
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                } catch (error) { hasError = true; }
+            }
+
+            if (rateLimited) { alert("⚠️ 請求過於頻繁 (Rate Limit HTTP 429)。
+因為免費 API 的限制，請稍等 1 分鐘後再重新點擊抓取。"); }
+            
+            const now = new Date();
+            document.getElementById('lastUpdate').innerHTML = `最後更新 (Last Updated): ${now.toLocaleTimeString()}`;
+            updateInputsAndCalculate();
+            
+            btn.disabled = false;
+            btn.innerHTML = "🔄 即時抓取最新股價<br><span style='font-size:0.8em;font-weight:normal;'>(Fetch Live Prices)</span>";
+        }
+
+        function updateInputsAndCalculate() {
+            ['O084', 'O123'].forEach(productId => {
+                elnData[productId].stocks.forEach(stock => {
+                    const priceInput = document.getElementById(`price-${productId}-${stock.ticker}`);
+                    if(livePrices[stock.ticker] > 0) { priceInput.value = livePrices[stock.ticker].toFixed(4); }
+                });
+            });
+            calculateAll();
+        }
+
+        function calculateAll() {
+            // 取得今日日期並將時間歸零，確保比對準確
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            ['O084', 'O123'].forEach(productId => {
+                const principal = parseFloat(document.getElementById('principal').value) || 0;
+                const interest = principal * elnData[productId].monthlyRate;
+                document.getElementById(`interest-${productId}`).innerText = `$${interest.toFixed(4)}`;
+
+                let allReadyToExit = true;
+                let anyKnockIn = false;
+                let allPricesLoaded = true;
+
+                // 解析該產品的首次觀察日
+                const obsDateParts = elnData[productId].obsDate.split('-');
+                const obsDateObj = new Date(obsDateParts[0], obsDateParts[1] - 1, obsDateParts[2]);
+                const isObservingPeriod = today >= obsDateObj; // 判斷今天是否已經過了首次觀察日
+
+                elnData[productId].stocks.forEach(stock => {
+                    const currentPrice = livePrices[stock.ticker];
+                    const changeEl = document.getElementById(`change-${productId}-${stock.ticker}`);
+                    const statusEl = document.getElementById(`status-${productId}-${stock.ticker}`);
+                    
+                    const memoryKey = 'eln_memory_' + productId + '_' + stock.ticker;
+                    let isMemoryLocked = localStorage.getItem(memoryKey) === 'true';
+
+                    if (currentPrice === 0 && !isMemoryLocked) {
+                        allPricesLoaded = false;
+                        allReadyToExit = false;
+                        if(isObservingPeriod) {
+                            statusEl.innerHTML = `
+                                <span style="color:#999; display:block; text-align:center; margin-bottom:5px;">等待更新<br><span>(Waiting)</span></span>
+                                <button class="btn-manual-lock" onclick="manualLock('${productId}', '${stock.ticker}')">✍️ 手動補登達標</button>
+                            `;
+                        } else {
+                            statusEl.innerHTML = `<span style="color:#999; display:block; text-align:center;">等待更新<br><span>(Waiting)</span></span>`;
+                        }
+                        return;
+                    }
+
+                    let changePct = 0;
+                    if (currentPrice > 0) {
+                        changePct = ((currentPrice - stock.initial) / stock.initial) * 100;
+                        changeEl.innerText = `${changePct > 0 ? '+' : ''}${changePct.toFixed(4)}%`;
+                        changeEl.className = changePct >= 0 ? 'text-green' : 'text-red';
+                    } else {
+                        changeEl.innerText = "-";
+                    }
+
+                    let statusHtml = '';
+
+                    if (!isObservingPeriod) {
+                        // 【狀態一：閉鎖期間】絕對不可啟動任何記憶與手動補登按鈕
+                        allReadyToExit = false;
+                        if (currentPrice >= stock.initial) {
+                            statusHtml = '<span class="status-badge bg-info">暫時達標 (閉鎖期)<br><span>(Lock-out: Target Met)</span></span>';
+                        } else if (currentPrice <= stock.knockIn) {
+                            statusHtml = '<span class="status-badge bg-danger">觸發下限風險<br><span>(Knock-in Risk)</span></span>';
+                            anyKnockIn = true;
+                        } else {
+                            statusHtml = '<span class="status-badge bg-warning">觀察中 (未達標)<br><span>(Observing)</span></span>';
+                        }
+                        statusHtml += `<div style="font-size:0.75em; color:#777; margin-top:5px; text-align:center; line-height:1.2;">🔒 尚未達 ${elnData[productId].obsDate} 觀察日<br>不開放記憶</div>`;
+                    } else {
+                        // 【狀態二：已進入觀察期】恢復自動記憶與手動按鈕
+                        if (currentPrice >= stock.initial) {
+                            localStorage.setItem(memoryKey, 'true');
+                            isMemoryLocked = true;
+                            statusHtml = '<span class="status-badge bg-memory">✅ 已達標 (記憶鎖定)<br><span>(Locked Target)</span></span>';
+                        } else if (isMemoryLocked) {
+                            statusHtml = '<span class="status-badge bg-memory">✅ 已達標 (記憶鎖定)<br><span>(Locked Target)</span></span>';
+                        } else if (currentPrice <= stock.knockIn) {
+                            statusHtml = '<span class="status-badge bg-danger">觸發下限風險<br><span>(Knock-in Triggered)</span></span>';
+                            statusHtml += `<button class="btn-manual-lock" onclick="manualLock('${productId}', '${stock.ticker}')">✍️ 手動補登達標</button>`;
+                            allReadyToExit = false;
+                            anyKnockIn = true;
+                        } else {
+                            statusHtml = '<span class="status-badge bg-warning">觀察中 (未達標)<br><span>(Observing)</span></span>';
+                            statusHtml += `<button class="btn-manual-lock" onclick="manualLock('${productId}', '${stock.ticker}')">✍️ 手動補登達標</button>`;
+                            allReadyToExit = false;
+                        }
+                    }
+                    
+                    statusEl.innerHTML = statusHtml;
+                });
+
+                const resultPanel = document.getElementById(`result-${productId}`);
+                if (!isObservingPeriod) {
+                    resultPanel.innerHTML = `<strong>🔒 閉鎖期狀態 (Lock-out Period)：</strong> 目前尚未到達首次觀察日 (${elnData[productId].obsDate})。這段期間股價的漲跌僅供盤中觀察，系統會自動<strong>鎖定記憶功能</strong>，防止無效的提早出場誤判。<br><span style="color:#666; font-size:0.9em;">(Currently in lock-out period. Memory lock is disabled until the observation date.)</span>`;
+                    resultPanel.style.borderLeftColor = "var(--info)";
+                } else if (!allPricesLoaded) {
+                    resultPanel.innerHTML = `請點擊上方按鈕抓取即時股價...<br><span style="color:#666; font-size:0.9em;">(Please click the button to fetch prices...)</span>`;
+                    resultPanel.style.borderLeftColor = "var(--primary)";
+                } else if (allReadyToExit) {
+                    resultPanel.innerHTML = `<strong>🟢 提早出場預測 (Early Exit Prediction)：</strong> 所有標的皆已被記憶為達標！本產品預計將<strong>觸發提前出場</strong>，您可拿回 100% 本金加上對應配息。<br><span style="color:#666; font-size:0.9em;">(All underlyings are locked as 'Target Reached'! This product will trigger an early exit. You will receive 100% of the principal plus interest.)</span>`;
+                    resultPanel.style.borderLeftColor = "var(--memory)";
+                } else if (anyKnockIn) {
+                    resultPanel.innerHTML = `<strong>🔴 風險警示 (Risk Alert)：</strong> 部分標的已跌破 60% 下限！若到期日仍未漲回，將面臨<strong>實物交割 (依執行價 ${elnData[productId].stocks[0].strike.toFixed(4)} 等比例計算)</strong>或本金虧損。<br><span style="color:#666; font-size:0.9em;">(Some underlyings have breached the 60% knock-in barrier! If not recovered by maturity, physical delivery at strike price or principal loss may occur.)</span>`;
+                    resultPanel.style.borderLeftColor = "var(--danger)";
+                } else {
+                    resultPanel.innerHTML = `<strong>🟡 目前狀態 (Current Status)：</strong> 標的尚未全部達標。產品將繼續配息，系統會繼續幫您記憶曾達標的股票。<br><span style="color:#666; font-size:0.9em;">(Underlyings have not all reached the target. The product will continue to pay interest and memorize any targets met.)</span>`;
+                    resultPanel.style.borderLeftColor = "var(--warning)";
+                }
+            });
+        }
+
+        // Initialize on load
+        loadSettings();
+        initTables();
+        
+        // Auto fetch on load
+        fetchPrices();
+    </script>
+</body>
+</html>
